@@ -52,8 +52,14 @@ function setupUpload() {
 async function handleFiles(files) {
   for (const f of files) {
     const fd = new FormData(); fd.append('file', f);
-    await fetch(`/api/checks/${currentCheckId}/upload`, { method: 'POST', body: fd });
-    uploadedFiles.push(f.name);
+    try {
+      const r = await fetch(`/api/checks/${currentCheckId}/upload`, { method: 'POST', body: fd });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.detail || j.error || 'Ошибка загрузки');
+      uploadedFiles.push(f.name);
+    } catch (e) {
+      alert('Ошибка загрузки ' + f.name + ': ' + e.message);
+    }
   }
   updateUploadList();
   document.getElementById('btn-run').disabled = false;
