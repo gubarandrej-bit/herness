@@ -26,11 +26,43 @@ async function loadChecks() {
   list.innerHTML = j.checks.map(c => `<div class="check-item" onclick="openCheck(${c.id})">#${c.id} ${c.name || ''} <span class="badge badge-${c.status}">${c.status}</span></div>`).join('');
 }
 async function newCheck() {
-  document.getElementById('dialog-title').textContent = 'Новая проверка';
-  const name = prompt('Название проверки:');
+  const mc = document.getElementById('modal-content');
+  mc.innerHTML = `
+    <h3>Новая проверка</h3>
+    <form onsubmit="createCheck(event)">
+      <label>Название проверки</label>
+      <input type="text" id="check-name" required placeholder="Например: Проверка комплекта КР">
+      <label>Режим работы ИИ</label>
+      <select id="check-mode">
+        <option value="local">Локальный (Ollama)</option>
+        <option value="cloud">Облачный (API)</option>
+        <option value="hybrid">Гибридный</option>
+      </select>
+      <label>Система</label>
+      <select id="check-system">
+        <option value="mixed">Все системы</option>
+        <option value="power">Электроснабжение</option>
+        <option value="fire">Противопожарные системы</option>
+        <option value="comms">Сети связи (СКС/ЛВС/ВОЛС)</option>
+        <option value="security">Охранные системы (СОТ/СКУД/ОС)</option>
+        <option value="acs">АСУ/АСУТП</option>
+      </select>
+      <button type="submit" class="btn-primary" style="margin-top:12px">Создать и загрузить файлы</button>
+    </form>`;
+  document.getElementById('modal-overlay').style.display = 'flex';
+}
+async function createCheck(e) {
+  e.preventDefault();
+  const name = document.getElementById('check-name').value.trim();
+  const mode = document.getElementById('check-mode').value;
+  const system = document.getElementById('check-system').value;
   if (!name) return;
-  const j = await api('POST', '/api/checks', `name=${encodeURIComponent(name)}`);
+  closeModal();
+  const j = await api('POST', '/api/checks',
+    `name=${encodeURIComponent(name)}&mode=${encodeURIComponent(mode)}&system_kind=${encodeURIComponent(system)}`);
   currentCheckId = j.check_id;
+  document.getElementById('dialog-title').textContent = 'Проверка #' + currentCheckId;
+  document.getElementById('dialog-mode').textContent = mode;
   window.history.replaceState(null, '', `/check/${currentCheckId}`);
   loadChecks();
   setupUpload();
