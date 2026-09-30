@@ -5,13 +5,22 @@ from passlib.hash import bcrypt
 from . import config
 from .db import db, utcnow
 
+# bcrypt truncates at 72 байта — обрезаем явно, чтобы избежать ValueError
+# на любых версиях библиотеки и любой длине пароля.
+_MAX_PW_BYTES = 72
+
+
+def _truncate(pw: str) -> str:
+    encoded = pw.encode("utf-8")
+    return encoded[:_MAX_PW_BYTES].decode("utf-8", errors="replace") if len(encoded) > _MAX_PW_BYTES else pw
+
 
 def hash_password(password: str) -> str:
-    return bcrypt.hash(password)
+    return bcrypt.hash(_truncate(password))
 
 
 def verify_password(password: str, password_hash: str) -> bool:
-    return bcrypt.verify(password, password_hash)
+    return bcrypt.verify(_truncate(password), password_hash)
 
 
 def create_session(user_id: int) -> str:
@@ -37,7 +46,6 @@ def validate_session(token: str | None) -> dict | None:
         ).fetchone()
         if not row:
             return None
-        from datetime import timezone
 
         expires = datetime.fromisoformat(row["expires_at"])
         if expires < datetime.now(timezone.utc):
