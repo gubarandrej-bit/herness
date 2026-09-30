@@ -65,12 +65,36 @@ def now_utc_ms() -> int:
 
 @app.on_event("startup")
 def startup():
+    import logging
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    log = logging.getLogger("herness")
     config.ensure_dirs()
     init_db(config.DEFAULT_ADMIN_LOGIN, config.DEFAULT_ADMIN_PASSWORD)
-    ntd_loader.ensure_ntd_table()
+    ntd_count = ntd_loader.ensure_ntd_table()
+    log.info(f"Загружено документов НТД: {ntd_count}")
 
 
 # --- health / debug --------------------------------------------------
+
+@app.get("/api/debug/ntd")
+def debug_ntd(request: Request):
+    """Диагностика: проверяет наличие файлов НТД и записей в БД."""
+    import logging
+    log = logging.getLogger("herness")
+    src = config.NTD_SOURCE_DIR
+    files = list(src.glob("*.pdf")) if src.exists() else []
+    with db() as conn:
+        count = conn.execute("SELECT COUNT(*) AS n FROM ntd_documents").fetchone()["n"]
+        rows = conn.execute("SELECT code, status, pages FROM ntd_documents").fetchall()
+    result = {
+        "ntd_dir_exists": src.exists(),
+        "ntd_dir": str(src),
+        "pdf_count": len(files),
+        "db_document_count": count,
+        "files": [f.name for f in files],
+        "db_documents": rows_to_dicts(rows),
+    }
+    return result
 
 @app.get("/health")
 def health():
