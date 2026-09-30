@@ -198,12 +198,28 @@ async function toggleBlock(id) { await fetch(`/api/admin/users/${id}/toggle-bloc
 async function delUser(id) { if (!confirm('Удалить пользователя?')) return; await fetch(`/api/admin/users/${id}`, { method: 'DELETE' }); loadUsers(); }
 /* --- admin: AI models --- */
 async function loadAiModels() {
-  const r = await fetch('/api/ai-models'); if (!r.ok) return;
-  const j = await r.json(); const el = document.getElementById('ai-model-list');
-  el.innerHTML = j.models.map(m => `<div style="font-size:.85rem;margin:2px 0;display:flex;justify-content:space-between;align-items:center">
-    <span>${m.name} (${m.kind}) ${m.is_default ? '⭐' : ''} ${m.is_enabled ? '' : '🚫'}</span>
-    <button onclick="delModel(${m.id})" class="btn-sm" style="color:var(--danger)">✕</button>
-  </div>`).join('');
+  const el = document.getElementById('model-list') || document.getElementById('ai-model-list');
+  if (!el) return;
+  el.textContent = 'Загрузка...';
+  try {
+    const r = await fetch('/api/ai-models');
+    if (!r.ok) { el.textContent = 'Ошибка загрузки'; return; }
+    const j = await r.json();
+    el.innerHTML = j.models.map(m =>
+      `<div style="font-size:.8rem;margin:2px 0;display:flex;justify-content:space-between;align-items:center">
+        <span>${m.name} (${m.kind}) ${m.is_enabled ? '✅' : '🚫'}</span>
+        <button onclick="delModelById(${m.id})" class="btn-sm" style="color:var(--danger);padding:2px 6px;font-size:.8rem">✕</button>
+      </div>`
+    ).join('');
+    if (!j.models.length) el.textContent = 'Модели не добавлены. Нажмите «+ Добавить модель»';
+  } catch (e) {
+    el.textContent = 'Ошибка: ' + e.message;
+  }
+}
+async function delModelById(id) {
+  if (!confirm('Удалить модель?')) return;
+  await fetch('/api/ai-models/' + id, { method: 'DELETE' });
+  loadAiModels();
 }
 function showAddModel() {
   const mc = document.getElementById('modal-content');
@@ -234,4 +250,5 @@ function closeModal() { document.getElementById('modal-overlay').style.display =
 setupUpload();
 if (document.getElementById('check-list')) loadChecks();
 if (document.getElementById('ntd-status')) loadNtdStatus();
+if (document.getElementById('model-list') || document.getElementById('ai-model-list')) loadAiModels();
 if (document.getElementById('users-table')) loadUsers();

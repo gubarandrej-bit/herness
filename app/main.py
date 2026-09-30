@@ -69,9 +69,13 @@ def startup():
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     log = logging.getLogger("herness")
     config.ensure_dirs()
+    # Принудительно создаём структуру БД и загружаем НТД при старте
     init_db(config.DEFAULT_ADMIN_LOGIN, config.DEFAULT_ADMIN_PASSWORD)
-    ntd_count = ntd_loader.ensure_ntd_table()
-    log.info(f"Загружено документов НТД: {ntd_count}")
+    try:
+        ntd_count = ntd_loader.ensure_ntd_table()
+        log.info(f"Загружено документов НТД: {ntd_count}")
+    except Exception as e:
+        log.warning(f"Ошибка загрузки НТД: {e}")
 
 
 # --- health / debug --------------------------------------------------
@@ -416,13 +420,16 @@ def list_ai_models(request: Request):
 
 
 @app.put("/api/ai-models")
-def upsert_ai_model(request: Request, data: dict):
-    user = getattr(request.state, "user", None)
+def upsert_ai_model(data: dict, request: Request = None):
+    user = getattr(getattr(request, 'state', None), 'user', None) if request else None
     if not user or user["role"] != "admin":
         raise HTTPException(403)
+    name = data.get("name", "")
+    if not name:
+        raise HTTPException(400, "Не указано имя модели")
     with db() as conn:
         existing = conn.execute(
-            "SELECT id FROM ai_models WHERE name = ?", (data["name"],)
+            "SELECT id FROM ai_models WHERE name = ?", (name,)
         ).fetchone()
         if existing:
             conn.execute(
@@ -436,10 +443,11 @@ def upsert_ai_model(request: Request, data: dict):
             conn.execute(
                 """INSERT INTO ai_models (name, kind, provider, base_url, model_id, api_key, is_enabled, notes, created_at, updated_at)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (data["name"], data.get("kind", "cloud"), data.get("provider", "openai-compatible"),
+                (name, data.get("kind", "cloud"), data.get("provider", "openai-compatible"),
                  data.get("base_url", ""), data.get("model_id", ""), data.get("api_key", ""),
                  data.get("is_enabled", 1), data.get("notes", ""), utcnow(), utcnow()),
             )
+        log_action(conn, user_id=user["id"], login=user["login"], action="upsert_ai_model", target=name)
     return {"ok": True}
 
 
