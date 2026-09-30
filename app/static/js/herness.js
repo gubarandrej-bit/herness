@@ -235,14 +235,26 @@ function showAddModel() {
     </form>`;
   document.getElementById('modal-overlay').style.display = 'flex';
 }
-async function addModel(e) { e.preventDefault();
-  await apiJson('/api/ai-models', {
-    name: document.getElementById('m-name').value, kind: document.getElementById('m-kind').value,
-    provider: document.getElementById('m-provider').value, base_url: document.getElementById('m-url').value,
-    model_id: document.getElementById('m-model').value, api_key: document.getElementById('m-key').value,
-    is_enabled: 1,
-  });
-  closeModal(); loadAiModels();
+async function addModel(e) {
+  e.preventDefault();
+  const btn = e.target.querySelector('button[type="submit"]');
+  btn.disabled = true; btn.textContent = 'Сохранение…';
+  try {
+    const j = await apiJson('/api/ai-models', {
+      name: document.getElementById('m-name').value,
+      kind: document.getElementById('m-kind').value,
+      provider: document.getElementById('m-provider').value,
+      base_url: document.getElementById('m-url').value,
+      model_id: document.getElementById('m-model').value,
+      api_key: document.getElementById('m-key').value,
+      is_enabled: 1,
+    });
+    if (!j.ok) throw new Error(j.error || 'Ошибка');
+    closeModal(); loadAiModels();
+  } catch (err) {
+    alert('Ошибка: ' + err.message);
+    btn.disabled = false; btn.textContent = 'Сохранить';
+  }
 }
 async function delModel(id) { await fetch('/api/ai-models/' + id, { method: 'DELETE' }); loadAiModels(); }
 function closeModal() { document.getElementById('modal-overlay').style.display = 'none'; }

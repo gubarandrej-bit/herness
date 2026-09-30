@@ -19,8 +19,8 @@ services:
       - "8080:8080"
     volumes:
       - herness-data:/data
-      # Пользовательские НТД: положите свои PDF в ./docs/ntd на сервере
-      - ./docs/ntd:/app/docs/ntd:ro
+      # Для добавления собственных НТД после сборки раскомментируйте:
+      # - ./docs/ntd:/app/docs/ntd:ro
     environment:
       HERNESS_DATA_DIR: /data
       HERNESS_DB: /data/db/herness.db
