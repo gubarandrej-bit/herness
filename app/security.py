@@ -1,26 +1,52 @@
-"""Хеширование паролей и управление сессиями."""
+"""Хеширование паролей и управление сессиями.
+
+Использует hashlib.pbkdf2_hmac (SHA-256) — без ограничения в 72 байта,
+которое есть у bcrypt в некоторых версиях библиотеки.
+"""
+from __future__ import annotations
+
+import hashlib
 import secrets
 from datetime import datetime, timezone
-from passlib.hash import bcrypt
+from typing import Optional
+
 from . import config
 from .db import db, utcnow
 
-# bcrypt truncates at 72 байта — обрезаем явно, чтобы избежать ValueError
-# на любых версиях библиотеки и любой длине пароля.
-_MAX_PW_BYTES = 72
+_PBKDF2_ITERATIONS = 600_000
+_SALT_BYTES = 16
+_HASH_LEN = 32
 
 
-def _truncate(pw: str) -> str:
-    encoded = pw.encode("utf-8")
-    return encoded[:_MAX_PW_BYTES].decode("utf-8", errors="replace") if len(encoded) > _MAX_PW_BYTES else pw
+def _hash_raw(password: str) -> str:
+    """Возвращает строку формата: pbkdf2_sha256:{iterations}:{salt}:{hash}"""
+    salt = secrets.token_bytes(_SALT_BYTES)
+    dk = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, _PBKDF2_ITERATIONS, dklen=_HASH_LEN)
+    parts = [
+        "pbkdf2_sha256",
+        str(_PBKDF2_ITERATIONS),
+        salt.hex(),
+        dk.hex(),
+    ]
+    return ":".join(parts)
 
 
 def hash_password(password: str) -> str:
-    return bcrypt.hash(_truncate(password))
+    return _hash_raw(password)
 
 
 def verify_password(password: str, password_hash: str) -> bool:
-    return bcrypt.verify(_truncate(password), password_hash)
+    try:
+        algo, iterations_hex, salt_hex, expected_hex = password_hash.split(":")
+        if algo != "pbkdf2_sha256":
+            return False
+        iterations = int(iterations_hex)
+        salt = bytes.fromhex(salt_hex)
+        expected = bytes.fromhex(expected_hex)
+        dk = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, iterations, dklen=len(expected))
+        return dk == expected
+    except (ValueError, AttributeError, IndexError):
+        return False
 
 
 def create_session(user_id: int) -> str:
@@ -34,7 +60,7 @@ def create_session(user_id: int) -> str:
     return token
 
 
-def validate_session(token: str | None) -> dict | None:
+def validate_session(token: Optional[str]) -> Optional[dict]:
     if not token:
         return None
     with db() as conn:
@@ -46,7 +72,6 @@ def validate_session(token: str | None) -> dict | None:
         ).fetchone()
         if not row:
             return None
-
         expires = datetime.fromisoformat(row["expires_at"])
         if expires < datetime.now(timezone.utc):
             conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
@@ -61,7 +86,5 @@ def delete_session(token: str) -> None:
 
 def delete_expired_sessions() -> int:
     with db() as conn:
-        res = conn.execute(
-            "DELETE FROM sessions WHERE expires_at < ?", (utcnow(),)
-        )
+        res = conn.execute("DELETE FROM sessions WHERE expires_at < ?", (utcnow(),))
         return res.rowcount
