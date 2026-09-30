@@ -8,7 +8,9 @@ from typing import Any
 
 import pandas as pd
 from docx import Document
-from pypdf import PdfReader
+
+# pypdf импортируется только при необходимости — в Docker он есть,
+# но на голом Python без него парсеры не должны падать при импорте.
 
 
 def parse_file(file_path: str) -> dict[str, Any]:
@@ -81,6 +83,7 @@ def _parse_xlsx(path: str) -> dict[str, Any]:
 
 def _parse_pdf(path: str) -> dict[str, Any]:
     """Извлекает текст из PDF."""
+    from pypdf import PdfReader  # lazy import — pypdf есть только в Docker
     try:
         reader = PdfReader(path)
         pages = []
@@ -109,7 +112,7 @@ def _parse_dwg(path: str) -> dict[str, Any]:
 
 def _detect_sheet_type(headers: list[str]) -> str:
     """Определяет тип листа по заголовкам столбцов."""
-    h = " ".join(headers)
+    h = " ".join(headers).lower()
     if any(k in h for k in ["кабель", "марка", "сечение", "длина", "трасса", "журнал"]):
         return "cable_journal"
     if any(k in h for k in ["поз", "наименование", "оборудование", "материал", "ед."]):

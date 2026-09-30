@@ -5,7 +5,14 @@ import re
 from pathlib import Path
 from . import config
 from .db import db, utcnow
-from pypdf import PdfReader
+
+# pypdf — только в Docker; при его отсутствии загрузка НТД отключится
+try:
+    from pypdf import PdfReader as _PdfReader
+    _HAS_PDF = True
+except ImportError:
+    _PdfReader = None
+    _HAS_PDF = False
 
 
 # Эталонный реестр НТД: код → (полное название, ожидаемая редакция, статус)
@@ -80,7 +87,7 @@ def ensure_ntd_table() -> int:
 
         pages = 0
         try:
-            reader = PdfReader(str(pdf_path))
+            reader = _PdfReader(str(pdf_path))
             pages = len(reader.pages)
         except Exception:
             pages = 0
@@ -150,8 +157,10 @@ def _match_code(filename: str) -> str | None:
 
 def _extract_pdf_text(pdf_path: Path) -> str:
     """Извлекает текст из PDF-файла."""
+    if not _HAS_PDF:
+        return ""
     try:
-        reader = PdfReader(str(pdf_path))
+        reader = _PdfReader(str(pdf_path))
         lines = []
         for page in reader.pages:
             text = page.extract_text() or ""
