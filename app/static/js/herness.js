@@ -71,14 +71,25 @@ async function openCheck(id) {
   window.location = '/check/' + id;
 }
 /* --- file upload --- */
+let uploadReady = false;
+
 function setupUpload() {
+  uploadReady = true;
   const zone = document.getElementById('upload-zone');
   const input = document.getElementById('file-input');
   zone.style.display = 'block';
-  zone.onclick = () => input.click();
-  zone.ondragover = e => { e.preventDefault(); zone.classList.add('dragover'); };
+  zone.textContent = 'Перетащите файлы сюда или нажмите для выбора';
+  zone.onclick = () => {
+    if (!currentCheckId) { newCheck(); return; }
+    input.click();
+  };
+  zone.ondragover = e => { e.preventDefault(); if (!currentCheckId) return; zone.classList.add('dragover'); };
   zone.ondragleave = () => zone.classList.remove('dragover');
-  zone.ondrop = e => { e.preventDefault(); zone.classList.remove('dragover'); handleFiles(e.dataTransfer.files); };
+  zone.ondrop = e => {
+    e.preventDefault(); zone.classList.remove('dragover');
+    if (!currentCheckId) { newCheck(); return; }
+    handleFiles(e.dataTransfer.files);
+  };
   input.onchange = () => { handleFiles(input.files); input.value = ''; };
 }
 async function handleFiles(files) {
@@ -204,6 +215,7 @@ async function addModel(e) { e.preventDefault();
 async function delModel(id) { await fetch('/api/ai-models/' + id, { method: 'DELETE' }); loadAiModels(); }
 function closeModal() { document.getElementById('modal-overlay').style.display = 'none'; }
 /* --- page load --- */
+setupUpload();
 if (document.getElementById('check-list')) loadChecks();
 if (document.getElementById('ntd-status')) loadNtdStatus();
 if (document.getElementById('users-table')) loadUsers();
