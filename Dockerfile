@@ -24,8 +24,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 COPY docs ./docs
-COPY scripts ./scripts
-COPY tests ./tests
+COPY install.sh .
 
 # Каталог данных монтируется томом: база, загруженные документы, отчёты.
 RUN mkdir -p /data/db /data/uploads /data/reports /data/ntd
