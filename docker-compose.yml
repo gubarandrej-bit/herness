@@ -1,0 +1,61 @@
+# herness — развёртывание.
+#
+#   docker compose up -d --build      запуск
+#   docker compose logs -f app        логи
+#   docker compose down               остановка
+#
+# Локальные нейросети необязательны: профиль "local-ai" поднимает Ollama.
+#   docker compose --profile local-ai up -d
+#
+# На сервере достаточно Docker и docker compose — больше ничего.
+
+services:
+  app:
+    build: .
+    image: herness:latest
+    container_name: herness-app
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - herness-data:/data
+      # Пользовательские НТД: положите свои PDF в ./docs/ntd на сервере
+      - ./docs/ntd:/app/docs/ntd:ro
+    environment:
+      HERNESS_DATA_DIR: /data
+      HERNESS_DB: /data/db/herness.db
+      HERNESS_UPLOADS: /data/uploads
+      HERNESS_REPORTS: /data/reports
+      # Часовой пояс для отметок времени в отчётах
+      TZ: Europe/Moscow
+      # Режим по умолчанию: local | cloud | hybrid
+      HERNESS_DEFAULT_MODE: local
+      # Адрес локального inference-сервера (Ollama), если поднят профиль local-ai.
+      # Для работы в локальном режиме укажите:
+      #   OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_BASE_URL: ""
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # Необязательный контейнер локальных моделей.
+  # Запуск: docker compose --profile local-ai up -d
+  # После запуска загрузите модель, например:
+  #   docker compose exec ollama ollama pull qwen2.5:7b-instruct
+  ollama:
+    image: ollama/ollama:latest
+    container_name: herness-ollama
+    restart: unless-stopped
+    profiles: ["local-ai"]
+    volumes:
+      - ollama-models:/root/.ollama
+    # Порт наружу не публикуется: приложение обращается по внутренней сети.
+    expose:
+      - "11434"
+
+volumes:
+  herness-data:
+  ollama-models:

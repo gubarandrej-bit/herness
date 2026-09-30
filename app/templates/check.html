@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Проверка — herness</title>
+<link rel="stylesheet" href="/static/css/herness.css"></head>
+<body>
+<nav class="topbar"><div class="topbar-left"><a href="/" class="logo">⚡ herness</a></div></nav>
+<main class="layout">
+<aside class="sidebar">
+  <h3>Проверка #<span id="check-id-label"></span></h3>
+  <div id="check-info"></div>
+</aside>
+<section class="main-area">
+  <div class="dialog" id="dialog">
+    <div id="dialog-header"><h2 id="dialog-title">Проверка</h2><span class="badge" id="dialog-mode"></span></div>
+    <div class="dialog-body" id="dialog-body">
+      <div id="step-list" style="display:none"></div>
+      <div id="findings-list" style="display:none;margin-top:16px"></div>
+    </div>
+  </div>
+</section>
+</main>
+<script src="/static/js/herness.js"></script>
+<script>const CHECK_ID = {{ check_id }}; loadCheck(CHECK_ID);</script>
+</body>
+</html>
