@@ -78,18 +78,34 @@ function setupUpload() {
   const zone = document.getElementById('upload-zone');
   const input = document.getElementById('file-input');
   zone.style.display = 'block';
-  zone.textContent = 'Перетащите файлы сюда или нажмите для выбора';
-  zone.onclick = () => {
-    if (!currentCheckId) { newCheck(); return; }
+  zone.textContent = 'Нажмите или перетащите файлы для загрузки';
+
+  async function ensureCheck() {
+    if (currentCheckId) return currentCheckId;
+    const now = new Date().toLocaleString('ru-RU');
+    const j = await api('POST', '/api/checks',
+      `name=${encodeURIComponent('Проверка от ' + now)}&mode=local&system_kind=mixed`);
+    currentCheckId = j.check_id;
+    document.getElementById('dialog-title').textContent = 'Проверка #' + currentCheckId;
+    document.getElementById('dialog-mode').textContent = 'local';
+    window.history.replaceState(null, '', `/check/${currentCheckId}`);
+    loadChecks();
+    return currentCheckId;
+  }
+
+  zone.onclick = async () => {
+    await ensureCheck();
     input.click();
   };
-  zone.ondragover = e => { e.preventDefault(); if (!currentCheckId) return; zone.classList.add('dragover'); };
+
+  zone.ondragover = e => { e.preventDefault(); zone.classList.add('dragover'); };
   zone.ondragleave = () => zone.classList.remove('dragover');
-  zone.ondrop = e => {
+  zone.ondrop = async (e) => {
     e.preventDefault(); zone.classList.remove('dragover');
-    if (!currentCheckId) { newCheck(); return; }
+    await ensureCheck();
     handleFiles(e.dataTransfer.files);
   };
+
   input.onchange = () => { handleFiles(input.files); input.value = ''; };
 }
 async function handleFiles(files) {
